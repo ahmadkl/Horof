@@ -1,0 +1,473 @@
+import os
+import zipfile
+
+# ============ محتوى الملفات ============
+
+INDEX_HTML = '''<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎈 لعبة الحروف - Letters Game</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎈</text></svg>">
+</head>
+<body>
+<div id="app">
+
+  <section id="screen-home" class="screen active">
+    <h1>🎈 لعبة الحروف 🎈</h1>
+    <p class="sub">تعلّم الحروف العربية والإنجليزية باللعب والنطق<br>
+      <span style="direction:ltr;display:inline-block">Learn Arabic &amp; English Letters</span>
+    </p>
+    <div class="lang-btns">
+      <button class="big-btn ar" onclick="startLang('ar')"><span class="flag">🇸🇦</span>العربية</button>
+      <button class="big-btn en" onclick="startLang('en')"><span class="flag">🇬🇧</span>English</button>
+    </div>
+    <p class="speak-hint" style="margin-top:34px">🔊 تأكد من رفع صوت الجهاز للاستماع إلى النطق</p>
+  </section>
+
+  <section id="screen-menu" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="showScreen('home')">🏠 الرئيسية</button>
+      <span class="hud" id="menu-lang">العربية</span>
+    </div>
+    <h2 id="menu-title">اختر النشاط</h2>
+    <p class="sub" id="menu-sub">ماذا تريد أن تتعلم اليوم؟</p>
+    <button class="menu-btn m-learn" onclick="startLearn()"><span class="ico">📖</span> تعلّم الحروف والكلمات</button>
+    <button class="menu-btn m-practice" onclick="startGame('practice')"><span class="ico">✏️</span> تدريبات ممتعة</button>
+    <button class="menu-btn m-quiz" onclick="startGame('quiz')"><span class="ico">🏆</span> اختبار وجمع النجوم</button>
+  </section>
+
+  <section id="screen-learn" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="stopSpeaking(); showScreen('menu')">⬅ رجوع</button>
+      <span class="hud" id="learn-progress">1 / 28</span>
+    </div>
+    <div class="letter-card" id="letter-card" onclick="speakCurrentLetter()">
+      <div class="letter-big" id="learn-letter">أ</div>
+    </div>
+    <div class="word-card" id="word-card" onclick="speakCurrentWord()">
+      <div class="word-emoji" id="learn-emoji">🦁</div>
+      <div class="word-text" id="learn-word">أسد</div>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn" id="prev-btn" onclick="prevLetter()">⬅ السابق</button>
+      <button class="nav-btn" id="next-btn" onclick="nextLetter()">التالي ➡</button>
+    </div>
+    <p class="speak-hint">👆 اضغط على البطاقة لسماع النطق</p>
+  </section>
+
+  <section id="screen-game" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="stopSpeaking(); showScreen('menu')">⬅ رجوع</button>
+      <span class="hud" id="game-hud">⭐ 0</span>
+    </div>
+    <div class="question-text" id="question-text"></div>
+    <div class="prompt-area" id="prompt-area"></div>
+    <div class="options" id="options-area"></div>
+    <div class="feedback" id="feedback"></div>
+  </section>
+
+  <section id="screen-result" class="screen">
+    <div class="result-box">
+      <h2 id="result-title">انتهى الاختبار! 🎉</h2>
+      <div class="result-stars" id="result-stars">⭐⭐⭐</div>
+      <div class="result-score" id="result-score">0 / 10</div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="nav-row" style="grid-template-columns:1fr;">
+        <button class="nav-btn" onclick="startGame('quiz')">🔁 إعادة الاختبار</button>
+      </div>
+      <div class="nav-row" style="grid-template-columns:1fr; margin-top:12px;">
+        <button class="nav-btn" style="background:linear-gradient(135deg,#8e9eab,#667db6)" onclick="showScreen('menu')">🏠 القائمة الرئيسية</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
+'''
+
+STYLE_CSS = '''* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 55%, #00c6ff 100%);
+  background-attachment: fixed;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px; min-height: 100vh; color: #2b2b45;
+}
+#app {
+  width: 100%; max-width: 780px;
+  background: #fff; border-radius: 30px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  padding: 22px; min-height: 620px;
+  position: relative; overflow: hidden;
+}
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn .35s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+h1 {
+  font-size: 38px; margin: 10px 0 4px; text-align: center; font-weight: 900;
+  background: linear-gradient(90deg, #6a11cb, #2575fc, #00c6ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+h2 { text-align: center; font-size: 26px; margin: 8px 0 4px; color: #4a3f8f; }
+.sub { text-align: center; color: #8a8aa3; font-size: 16px; margin: 0 0 10px; }
+.lang-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 34px; }
+.big-btn {
+  border: none; border-radius: 26px; padding: 34px 10px;
+  font-size: 24px; font-weight: 800; cursor: pointer; color: #fff;
+  transition: .2s; box-shadow: 0 10px 24px rgba(0,0,0,.18);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.big-btn span.flag { font-size: 46px; }
+.big-btn:hover { transform: translateY(-5px) scale(1.02); }
+.big-btn:active { transform: scale(.96); }
+.big-btn.ar { background: linear-gradient(135deg, #00b09b, #96c93d); }
+.big-btn.en { background: linear-gradient(135deg, #f7971e, #ffd200); color: #5a3d00; }
+.menu-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; margin: 13px 0; padding: 20px 24px;
+  font-size: 21px; font-weight: 700; border: none; border-radius: 20px;
+  cursor: pointer; color: #fff; transition: .2s; text-align: right;
+  box-shadow: 0 7px 18px rgba(0,0,0,.15);
+}
+.menu-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 24px rgba(0,0,0,.22); }
+.menu-btn:active { transform: scale(.98); }
+.menu-btn .ico { font-size: 28px; }
+.m-learn { background: linear-gradient(135deg, #667eea, #764ba2); }
+.m-practice { background: linear-gradient(135deg, #11998e, #38ef7d); }
+.m-quiz { background: linear-gradient(135deg, #f7971e, #ff6b6b); }
+.m-home { background: linear-gradient(135deg, #8e9eab, #667db6); }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; gap: 10px;
+}
+.back-btn {
+  border: none; background: #eef0ff; color: #4a3f8f;
+  padding: 10px 18px; border-radius: 14px; font-size: 16px;
+  font-weight: 700; cursor: pointer; transition: .2s;
+}
+.back-btn:hover { background: #dfe3ff; }
+.hud {
+  background: #f3f4ff; color: #4a3f8f; font-weight: 800;
+  padding: 10px 18px; border-radius: 14px; font-size: 16px;
+}
+.letter-card {
+  background: linear-gradient(135deg, #eef2ff, #fce7f3);
+  border-radius: 28px; padding: 14px; text-align: center;
+  margin-bottom: 14px; position: relative; cursor: pointer;
+  transition: .2s; box-shadow: inset 0 0 0 3px #fff;
+}
+.letter-card:hover { transform: scale(1.01); }
+.letter-big {
+  font-size: 120px; font-weight: 900; line-height: 1.15;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  display: inline-block; user-select: none;
+}
+.word-card {
+  background: linear-gradient(135deg, #fff7e6, #ffe9f3);
+  border-radius: 28px; padding: 16px; text-align: center;
+  cursor: pointer; transition: .2s; box-shadow: inset 0 0 0 3px #fff;
+  margin-bottom: 16px;
+}
+.word-card:hover { transform: scale(1.01); }
+.word-emoji { font-size: 68px; line-height: 1.1; }
+.word-text { font-size: 34px; font-weight: 800; color: #d6336c; margin-top: 4px; }
+.word-text.en { direction: ltr; font-family: 'Segoe UI', Arial, sans-serif; color: #1b6ca8; }
+.nav-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.nav-btn {
+  border: none; border-radius: 18px; padding: 16px;
+  font-size: 19px; font-weight: 800; cursor: pointer;
+  color: #fff; background: linear-gradient(135deg, #667eea, #764ba2);
+  transition: .2s; box-shadow: 0 6px 16px rgba(102,126,234,.4);
+}
+.nav-btn:hover { transform: translateY(-3px); }
+.nav-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.speak-hint { text-align: center; color: #9a9ab5; font-size: 14px; margin-top: 10px; }
+.question-text {
+  text-align: center; font-size: 22px; font-weight: 800;
+  color: #4a3f8f; margin: 6px 0 14px; line-height: 1.5;
+}
+.question-text .en-line {
+  display: block; font-size: 15px; color: #9a9ab5;
+  font-weight: 600; direction: ltr;
+}
+.prompt-area {
+  background: linear-gradient(135deg, #eef2ff, #fce7f3);
+  border-radius: 26px; padding: 18px; text-align: center;
+  cursor: pointer; transition: .2s; margin-bottom: 16px;
+  box-shadow: inset 0 0 0 3px #fff;
+}
+.prompt-area:hover { transform: scale(1.01); }
+.prompt-emoji { font-size: 74px; line-height: 1.1; }
+.prompt-word { font-size: 34px; font-weight: 800; color: #d6336c; }
+.prompt-word.en { direction: ltr; color: #1b6ca8; }
+.prompt-letter {
+  font-size: 104px; font-weight: 900; line-height: 1.15;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.options { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.opt {
+  border: 3px solid #e3e5ff; background: #f8f9ff;
+  border-radius: 20px; padding: 16px 10px; cursor: pointer;
+  font-weight: 800; color: #2b2b45; transition: .16s;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; min-height: 88px; font-family: inherit;
+}
+.opt:hover:not(:disabled) { transform: translateY(-4px); border-color: #a5b4ff; background: #eef1ff; }
+.opt:disabled { cursor: default; }
+.letter-opt { font-size: 44px; }
+.word-opt .opt-emoji { font-size: 38px; line-height: 1; }
+.word-opt .opt-word { font-size: 20px; }
+.opt.correct { background: #d9f8dd !important; border-color: #34c759 !important; animation: pop .35s ease; }
+.opt.wrong { background: #ffe0e0 !important; border-color: #ff3b30 !important; animation: shake .35s ease; }
+@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+.feedback { text-align: center; font-size: 22px; font-weight: 800; margin-top: 14px; min-height: 32px; }
+.feedback.ok { color: #1fa84e; }
+.feedback.no { color: #e02424; }
+.result-box { text-align: center; padding: 18px 6px; }
+.result-stars { font-size: 58px; letter-spacing: 8px; }
+.result-score {
+  font-size: 46px; font-weight: 900; margin: 12px 0;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.result-msg { font-size: 22px; font-weight: 700; color: #4a3f8f; margin-bottom: 22px; }
+@media (max-width: 520px) {
+  #app { padding: 16px; border-radius: 22px; min-height: 560px; }
+  h1 { font-size: 28px; }
+  .letter-big { font-size: 88px; }
+  .prompt-letter { font-size: 78px; }
+  .prompt-emoji { font-size: 56px; }
+  .word-emoji { font-size: 52px; }
+  .word-text { font-size: 26px; }
+  .opt { min-height: 76px; }
+  .letter-opt { font-size: 36px; }
+  .big-btn { padding: 26px 8px; font-size: 20px; }
+  .menu-btn { font-size: 18px; padding: 17px 18px; }
+  .question-text { font-size: 19px; }
+}
+'''
+
+SCRIPT_JS = '''const AR_LETTERS = [
+  { l: 'أ', w: 'أسد', e: '🦁' }, { l: 'ب', w: 'بطة', e: '🦆' },
+  { l: 'ت', w: 'تفاحة', e: '🍎' }, { l: 'ث', w: 'ثعلب', e: '🦊' },
+  { l: 'ج', w: 'جمل', e: '🐪' }, { l: 'ح', w: 'حصان', e: '🐴' },
+  { l: 'خ', w: 'خروف', e: '🐑' }, { l: 'د', w: 'دجاجة', e: '🐔' },
+  { l: 'ذ', w: 'ذئب', e: '🐺' }, { l: 'ر', w: 'ريشة', e: '🪶' },
+  { l: 'ز', w: 'زرافة', e: '🦒' }, { l: 'س', w: 'سمكة', e: '🐟' },
+  { l: 'ش', w: 'شمس', e: '☀️' }, { l: 'ص', w: 'صقر', e: '🦅' },
+  { l: 'ض', w: 'ضفدع', e: '🐸' }, { l: 'ط', w: 'طائرة', e: '✈️' },
+  { l: 'ظ', w: 'ظرف', e: '✉️' }, { l: 'ع', w: 'عين', e: '👁️' },
+  { l: 'غ', w: 'غزال', e: '🦌' }, { l: 'ف', w: 'فيل', e: '🐘' },
+  { l: 'ق', w: 'قمر', e: '🌙' }, { l: 'ك', w: 'كتاب', e: '📚' },
+  { l: 'ل', w: 'ليمون', e: '🍋' }, { l: 'م', w: 'موز', e: '🍌' },
+  { l: 'ن', w: 'نحلة', e: '🐝' }, { l: 'ه', w: 'هدية', e: '🎁' },
+  { l: 'و', w: 'وردة', e: '🌹' }, { l: 'ي', w: 'يد', e: '✋' }
+];
+
+const EN_LETTERS = [
+  { l: 'A', w: 'Apple', e: '🍎' }, { l: 'B', w: 'Ball', e: '⚽' },
+  { l: 'C', w: 'Cat', e: '🐱' }, { l: 'D', w: 'Dog', e: '🐶' },
+  { l: 'E', w: 'Elephant', e: '🐘' }, { l: 'F', w: 'Fish', e: '🐟' },
+  { l: 'G', w: 'Grapes', e: '🍇' }, { l: 'H', w: 'Horse', e: '🐴' },
+  { l: 'I', w: 'Ice Cream', e: '🍦' }, { l: 'J', w: 'Juice', e: '🧃' },
+  { l: 'K', w: 'Key', e: '🔑' }, { l: 'L', w: 'Lion', e: '🦁' },
+  { l: 'M', w: 'Monkey', e: '🐵' }, { l: 'N', w: 'Nose', e: '👃' },
+  { l: 'O', w: 'Orange', e: '🍊' }, { l: 'P', w: 'Panda', e: '🐼' },
+  { l: 'Q', w: 'Queen', e: '👑' }, { l: 'R', w: 'Rabbit', e: '🐰' },
+  { l: 'S', w: 'Sun', e: '☀️' }, { l: 'T', w: 'Tiger', e: '🐯' },
+  { l: 'U', w: 'Umbrella', e: '☂️' }, { l: 'V', w: 'Violin', e: '🎻' },
+  { l: 'W', w: 'Watermelon', e: '🍉' }, { l: 'X', w: 'Xylophone', e: '🎹' },
+  { l: 'Y', w: 'Yo-Yo', e: '🪀' }, { l: 'Z', w: 'Zebra', e: '🦓' }
+];
+
+const TOTAL_QUIZ_QUESTIONS = 10;
+
+const state = {
+  lang: 'ar', mode: 'practice', letterIndex: 0, score: 0,
+  qNum: 0, totalQ: TOTAL_QUIZ_QUESTIONS, currentQ: null,
+  answered: false, locked: false
+};
+
+function currentLetters() { return state.lang === 'ar' ? AR_LETTERS : EN_LETTERS; }
+function langCode() { return state.lang === 'ar' ? 'ar-SA' : 'en-US'; }
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function randInt(n) { return Math.floor(Math.random() * n); }
+function pickRandom(arr) { return arr[randInt(arr.length)]; }
+function $(id) { return document.getElementById(id); }
+
+let voices = [];
+function loadVoices() { if ('speechSynthesis' in window) voices = window.speechSynthesis.getVoices() || []; }
+if ('speechSynthesis' in window) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  setTimeout(loadVoices, 300);
+  setTimeout(loadVoices, 1200);
+}
+function stopSpeaking() { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); }
+function speak(text, code) {
+  if (!('speechSynthesis' in window) || !text) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(text));
+    const lang = code || langCode();
+    u.lang = lang; u.rate = 0.82; u.pitch = 1.08; u.volume = 1;
+    const prefix = lang.slice(0, 2).toLowerCase();
+    const v = voices.find(x => (x.lang || '').replace('_', '-').toLowerCase().startsWith(prefix) && x.localService)
+           || voices.find(x => (x.lang || '').replace('_', '-').toLowerCase().startsWith(prefix));
+    if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+  } catch (err) {}
+}
+
+let audioCtx = null;
+function beep(freq, duration, type) {
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.14, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    o.start(t); o.stop(t + duration + 0.02);
+  } catch (err) {}
+}
+function soundCorrect() {
+  beep(680, 0.12); setTimeout(() => beep(900, 0.16), 110); setTimeout(() => beep(1150, 0.2), 230);
+}
+function soundWrong() { beep(220, 0.22, 'sawtooth'); setTimeout(() => beep(160, 0.28, 'sawtooth'), 160); }
+function soundClick() { beep(520, 0.06, 'triangle'); }
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const el = $('screen-' + name);
+  if (el) el.classList.add('active');
+}
+
+function startLang(lang) {
+  soundClick();
+  state.lang = lang; state.score = 0; state.letterIndex = 0;
+  $('menu-lang').textContent = lang === 'ar' ? '🇸🇦 العربية' : '🇬🇧 English';
+  $('menu-title').textContent = lang === 'ar' ? 'اختر النشاط' : 'Choose an Activity';
+  $('menu-sub').textContent = lang === 'ar' ? 'ماذا تريد أن تتعلم اليوم؟' : 'What do you want to learn today?';
+  showScreen('menu');
+  speak(lang === 'ar' ? 'هيا نتعلم الحروف العربية' : 'Let us learn English letters', langCode());
+}
+
+function startLearn() {
+  soundClick();
+  state.mode = 'learn'; state.letterIndex = 0;
+  renderLetter(true);
+  showScreen('learn');
+}
+
+function renderLetter(autoSpeak) {
+  const letters = currentLetters();
+  const item = letters[state.letterIndex];
+  $('learn-letter').textContent = item.l;
+  $('learn-emoji').textContent = item.e;
+  const wordEl = $('learn-word');
+  wordEl.textContent = item.w;
+  wordEl.classList.toggle('en', state.lang === 'en');
+  $('learn-progress').textContent = (state.letterIndex + 1) + ' / ' + letters.length;
+  $('prev-btn').disabled = (state.letterIndex === 0);
+  $('next-btn').disabled = (state.letterIndex === letters.length - 1);
+  if (autoSpeak) {
+    stopSpeaking();
+    setTimeout(() => speak(item.l, langCode()), 180);
+    setTimeout(() => speak(item.w, langCode()), 1150);
+  }
+}
+function speakCurrentLetter() {
+  const item = currentLetters()[state.letterIndex];
+  soundClick(); speak(item.l, langCode());
+}
+function speakCurrentWord() {
+  const item = currentLetters()[state.letterIndex];
+  soundClick(); speak(item.w, langCode());
+}
+function nextLetter() {
+  const letters = currentLetters();
+  if (state.letterIndex < letters.length - 1) { state.letterIndex++; soundClick(); renderLetter(true); }
+}
+function prevLetter() {
+  if (state.letterIndex > 0) { state.letterIndex--; soundClick(); renderLetter(true); }
+}
+
+function pickOptions(correctObj, key, count) {
+  const pool = currentLetters();
+  const opts = [correctObj];
+  const used = new Set([correctObj[key]]);
+  let guard = 0;
+  while (opts.length < count && guard < 800) {
+    guard++;
+    const cand = pool[randInt(pool.length)];
+    if (!used.has(cand[key])) { used.add(cand[key]); opts.push(cand); }
+  }
+  return shuffle(opts);
+}
+
+function buildQuestion() {
+  const letters = currentLetters();
+  const correct = letters[randInt(letters.length)];
+  const type = Math.random() < 0.5 ? 'letter' : 'word';
+  if (type === 'letter') {
+    return { type: 'letter', correct, textAr: 'ما هو الحرف الأول من هذه الكلمة؟',
+      textEn: 'What is the first letter of this word?', options: pickOptions(correct, 'l', 4) };
+  } else {
+    return { type: 'word', correct, textAr: 'اختر الكلمة التي تبدأ بهذا الحرف',
+      textEn: 'Choose the word that starts with this letter', options: pickOptions(correct, 'w', 4) };
+  }
+}
+
+function startGame(mode) {
+  soundClick();
+  state.mode = mode; state.score = 0; state.qNum = 0;
+  state.answered = false; state.locked = false;
+  state.totalQ = TOTAL_QUIZ_QUESTIONS;
+  showScreen('game');
+  nextQuestion();
+}
+
+function nextQuestion() {
+  state.answered = false; state.locked = false;
+  state.currentQ = buildQuestion();
+  renderQuestion();
+  updateHud();
+}
+
+function updateHud() {
+  const hud = $('game-hud');
+  if (state.mode === 'quiz') {
+    const current = Math.min(state.qNum + 1, state.totalQ);
+    hud.textContent = (state.lang === 'ar' ? 'سؤال ' : 'Q ') + current + '/' + state.totalQ + '  ⭐ ' + state.score;
+  } else {
+    hud.textContent = '✅ ' + state.score;
+  }
+}
+
+function renderQuestion(
