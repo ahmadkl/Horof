@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎈 لعبة الحروف - Letters Game</title>
+<link rel="stylesheet" href="style.css">
+<meta name="description" content="تعلّم الحروف العربية والإنجليزية باللعب والنطق - Learn Arabic &amp; English letters by playing">
+<meta name="theme-color" content="#6a11cb">
+<meta property="og:type" content="website">
+<meta property="og:title" content="🎈 لعبة الحروف - Letters Game">
+<meta property="og:description" content="تعلّم الحروف العربية والإنجليزية باللعب والنطق">
+<meta property="og:image" content="assets/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div id="app">
+
+  <section id="screen-home" class="screen active">
+    <img class="logo" src="assets/icons/icon-192.png" alt="" width="96" height="96">
+    <h1>لعبة الحروف</h1>
+    <p class="sub">تعلّم الحروف العربية والإنجليزية باللعب والنطق<br>
+      <span style="direction:ltr;display:inline-block">Learn Arabic &amp; English Letters</span>
+    </p>
+    <div class="lang-btns">
+      <button class="big-btn ar" onclick="startLang('ar')"><span class="flag">🇸🇦</span>العربية</button>
+      <button class="big-btn en" onclick="startLang('en')"><span class="flag">🇬🇧</span>English</button>
+    </div>
+    <p class="speak-hint" style="margin-top:34px">🔊 تأكد من رفع صوت الجهاز للاستماع إلى النطق</p>
+  </section>
+
+  <section id="screen-menu" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="showScreen('home')">🏠 الرئيسية</button>
+      <span class="hud" id="menu-lang">العربية</span>
+    </div>
+    <h2 id="menu-title">اختر النشاط</h2>
+    <p class="sub" id="menu-sub">ماذا تريد أن تتعلم اليوم؟</p>
+    <button class="menu-btn m-learn" onclick="startLearn()"><span class="ico">📖</span> تعلّم الحروف والكلمات</button>
+    <button class="menu-btn m-practice" onclick="startGame('practice')"><span class="ico">✏️</span> تدريبات ممتعة</button>
+    <button class="menu-btn m-quiz" onclick="startGame('quiz')"><span class="ico">🏆</span> اختبار وجمع النجوم</button>
+  </section>
+
+  <section id="screen-learn" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="stopSpeaking(); showScreen('menu')">⬅ رجوع</button>
+      <span class="hud" id="learn-progress">1 / 28</span>
+    </div>
+    <div class="letter-card" id="letter-card" onclick="speakCurrentLetter()">
+      <div class="letter-big" id="learn-letter">أ</div>
+    </div>
+    <div class="word-card" id="word-card" onclick="speakCurrentWord()">
+      <div class="word-emoji" id="learn-emoji">🦁</div>
+      <div class="word-text" id="learn-word">أسد</div>
+    </div>
+    <div class="nav-row">
+      <button class="nav-btn" id="prev-btn" onclick="prevLetter()">⬅ السابق</button>
+      <button class="nav-btn" id="next-btn" onclick="nextLetter()">التالي ➡</button>
+    </div>
+    <p class="speak-hint">👆 اضغط على البطاقة لسماع النطق</p>
+  </section>
+
+  <section id="screen-game" class="screen">
+    <div class="topbar">
+      <button class="back-btn" onclick="stopSpeaking(); showScreen('menu')">⬅ رجوع</button>
+      <span class="hud" id="game-hud">⭐ 0</span>
+    </div>
+    <div class="question-text" id="question-text"></div>
+    <div class="prompt-area" id="prompt-area"></div>
+    <div class="options" id="options-area"></div>
+    <div class="feedback" id="feedback"></div>
+  </section>
+
+  <section id="screen-result" class="screen">
+    <div class="result-box">
+      <h2 id="result-title">انتهى الاختبار! 🎉</h2>
+      <div class="result-stars" id="result-stars">⭐⭐⭐</div>
+      <div class="result-score" id="result-score">0 / 10</div>
+      <div class="result-msg" id="result-msg"></div>
+      <div class="nav-row" style="grid-template-columns:1fr;">
+        <button class="nav-btn" onclick="startGame('quiz')">🔁 إعادة الاختبار</button>
+      </div>
+      <div class="nav-row" style="grid-template-columns:1fr; margin-top:12px;">
+        <button class="nav-btn" style="background:linear-gradient(135deg,#8e9eab,#667db6)" onclick="showScreen('menu')">🏠 القائمة الرئيسية</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
